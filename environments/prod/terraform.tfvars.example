@@ -1,0 +1,8 @@
+aws_region   = "us-east-1"
+aws_profile  = "prod"
+bucket_name  = "terraform-challenge-prod-site-123456"
+ssh_key_name = "prod-key"
+
+# Optional - leave empty to use default CloudFront domain / no TLS
+domain_name         = ""
+acm_certificate_arn = ""

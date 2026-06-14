@@ -1,0 +1,66 @@
+name: Deploy Website Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "environments/**"
+      - "modules/**"
+      - "html/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "environments/**"
+      - "modules/**"
+
+jobs:
+  terraform-dev:
+    name: Terraform Plan/Apply (dev)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: environments/dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Configure AWS credentials (dev)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: us-east-1
+
+      - run: terraform init
+      - run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve tfplan
+
+  deploy-content:
+    name: Sync HTML to S3 and invalidate CloudFront
+    needs: terraform-dev
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (dev)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: us-east-1
+
+      - name: Sync site content to S3
+        run: aws s3 sync html/ s3://${{ secrets.DEV_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.DEV_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
