@@ -1,0 +1,8 @@
+aws_region   = "us-east-1"
+aws_profile  = "dev"
+bucket_name  = "terraform-challenge-dev-site-123456"
+ssh_key_name = "dev-key"
+
+# Optional - leave empty to use default CloudFront domain / no TLS
+domain_name         = ""
+acm_certificate_arn = ""
